@@ -1218,3 +1218,233 @@ AND owner NOT IN
  WHERE action=0);
 
 spool off
+
+--SQL WAIT EVENTS
+spool opdb__ashsqlwaits__&v_host..&v_dbname..&v_inst..&v_hora..log
+
+SELECT
+    '&&v_host'
+    || '_'
+    || '&&v_dbname'
+    || '_'
+    || '&&v_hora'   AS pkey,
+    sql_id,
+    sql_opname,
+    sql_plan_hash_value,
+    event,
+    COUNT(*)        total_waits
+FROM
+    dba_hist_active_sess_history
+WHERE
+        session_type != 'BACKGROUND'
+    AND snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
+GROUP BY
+    '&&v_host'
+    || '_'
+    || '&&v_dbname'
+    || '_'
+    || '&&v_hora',
+    sql_id,
+    sql_opname,
+    sql_plan_hash_value,
+    event;
+
+spool off
+
+--DISTINCT PROGRAMS, MACHINES
+spool opdb__ashprograms__&v_host..&v_dbname..&v_inst..&v_hora..log
+
+select '&&v_host'
+    || '_'
+    || '&&v_dbname'
+    || '_'
+    || '&&v_hora'   AS pkey,PROGRAM, MODULE, MACHINE,COUNT(*) COUNTS from DBA_HIST_ACTIVE_SESS_HISTORY
+where session_type!='BACKGROUND' AND snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
+GROUP BY '&&v_host'
+    || '_'
+    || '&&v_dbname'
+    || '_'
+    || '&&v_hora', PROGRAM, MODULE, MACHINE;
+
+spool off
+
+--TOP 100 SEGMENTS
+spool opdb__topsegments__&v_host..&v_dbname..&v_inst..&v_hora..log
+
+SELECT
+    '&&v_host'
+    || '_'
+    || '&&v_dbname'
+    || '_'
+    || '&&v_hora' AS pkey,
+    object_id,
+    owner,
+    object_name,
+    object_type,
+    logical_reads_total,
+    db_block_changes_total,
+    buffer_busy_waits_total,
+    physical_reads_total,
+    physical_writes_total,
+    row_lock_waits_total,
+    table_scans_total
+FROM
+    (
+        SELECT
+            o.object_id,
+            o.owner,
+            o.object_name,
+            o.object_type,
+            MAX(logical_reads_total)         logical_reads_total,
+            MAX(db_block_changes_total)      db_block_changes_total,
+            MAX(buffer_busy_waits_total)     buffer_busy_waits_total,
+            MAX(physical_reads_total)        physical_reads_total,
+            MAX(physical_writes_total)       physical_writes_total,
+            MAX(row_lock_waits_total)        row_lock_waits_total,
+            MAX(table_scans_total)           table_scans_total
+        FROM
+            dba_hist_seg_stat
+            LEFT JOIN dba_objects o ON obj# = object_id
+        WHERE
+            snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
+        GROUP BY
+            o.object_id,
+            o.owner,
+            o.object_name,
+            o.object_type
+        ORDER BY
+            logical_reads_total + physical_writes_total DESC
+    )
+WHERE
+    ROWNUM <= 100;
+
+spool off
+
+--TOP OBJECT ACCESS
+spool opdb__topaccess__&v_host..&v_dbname..&v_inst..&v_hora..log
+
+SELECT
+    '&&v_host'
+    || '_'
+    || '&&v_dbname'
+    || '_'
+    || '&&v_hora' AS pkey,
+    operation,
+    options,
+    object#,
+    object_owner,
+    object_name,
+    object_type,
+    count_access
+FROM
+    (
+        SELECT
+            operation,
+            options,
+            object#,
+            object_owner,
+            object_name,
+            object_type,
+            COUNT(*) count_access
+        FROM
+            dba_hist_sql_plan
+        WHERE
+            operation IN ( 'INDEX', 'TABLE ACCESS' )
+        GROUP BY
+            operation,
+            options,
+            object#,
+            object_owner,
+            object_name,
+            object_type
+        ORDER BY
+            count_access DESC
+    )
+WHERE
+    ROWNUM <= 100;
+
+spool off
+
+
+spool opdb__topsqls__&v_host..&v_dbname..&v_inst..&v_hora..log
+
+select '&&v_host' || '_' || '&&v_dbname' || '_' || '&&v_hora' as pkey, a.*  from (
+SELECT h.snap_id,
+       h.instance_number inst_id,
+       TO_CHAR(CAST(s.end_interval_time AS DATE), 'YYYY-MM-DD HH24:MI') end_time,
+       h.sql_id,
+       h.plan_hash_value phv,
+       h.module,
+       rank() over(partition by h.snap_id, h.instance_number order by h.executions_delta desc) rank_exec,
+       h.executions_delta exec_delta,
+       rank() over(partition by h.snap_id, h.instance_number order by h.elapsed_time_delta desc) rank_elap,
+       h.elapsed_time_delta,
+       rank() over(partition by h.snap_id, h.instance_number order by ROUND(h.rows_processed_delta / h.executions_delta) desc) rank_rows_exec,
+       ROUND(h.rows_processed_delta / h.executions_delta) rows_per_exec,
+       rank() over(partition by h.snap_id, h.instance_number order by ROUND(h.rows_processed_delta / h.buffer_gets_delta, 3) desc) rank_rows_buff,
+       ROUND(h.rows_processed_delta / h.buffer_gets_delta, 3) rows_per_buffer,
+       rank() over(partition by h.snap_id, h.instance_number order by ROUND(h.elapsed_time_delta / h.executions_delta, 3) desc) rank_exec_elap,
+       ROUND(h.elapsed_time_delta / h.executions_delta, 3) et_secs_per_exec,
+       ROUND(h.cpu_time_delta / h.executions_delta, 3) cpu_secs_per_exec,
+       ROUND(h.iowait_delta / h.executions_delta, 3) io_secs_per_exec,
+       ROUND(h.clwait_delta / h.executions_delta, 3) cl_secs_per_exec,
+       ROUND(h.apwait_delta / h.executions_delta, 3) ap_secs_per_exec,
+       ROUND(h.ccwait_delta / h.executions_delta, 3) cc_secs_per_exec,
+       ROUND(h.plsexec_time_delta / h.executions_delta, 3) pl_secs_per_exec
+  FROM dba_hist_sqlstat h,
+       dba_hist_snapshot s
+ WHERE h.executions_delta > 0
+   AND h.buffer_gets_delta > 0
+   AND s.snap_id = h.snap_id
+   AND s.dbid = h.dbid
+   AND s.instance_number = h.instance_number
+) where rank_exec < 20 or rank_elap < 20 or rank_rows_exec < 20 or rank_rows_buff < 20 or rank_exec_elap < 20;
+
+spool off
+
+
+spool opdb__dbahistsysstat__&v_host..&v_dbname..&v_inst..&v_hora..log
+
+SELECT s.snap_id,
+       s.instance_number,
+       s.begin_interval_time,
+       g.stat_name,
+       g.value,
+       NVL(DECODE(GREATEST(value, NVL(LAG(value)
+                                        over (
+                                          PARTITION BY s.dbid, s.instance_number, g.stat_name
+                                          ORDER BY s.snap_id), 0)), value, value - LAG(value)
+                                                                                     over (
+                                                                                       PARTITION BY s.dbid, s.instance_number, g.stat_name
+                                                                                       ORDER BY s.snap_id),
+                                                                    0), 0) AS DELTA
+FROM   dba_hist_snapshot s,
+       dba_hist_sysstat g
+WHERE  s.snap_id = g.snap_id
+       AND g.stat_name IN ( 'CPU used by this session', 'DB time', 'Effective IO time', 'HCC DML conventional',
+                            'HCC load conventional CUs', 'HCC load direct CUs', 'HCC scan cell bytes compressed', 'HCC scan cell bytes decompressed',
+                            'HCC scan rdbms bytes compressed', 'HCC scan rdbms bytes decompressed', 'HCC usage ZFS', 'HCC usage cloud',
+                            'HCC usage pillar', 'IM populate rows', 'IM scan bytes in-memory', 'IM scan bytes uncompressed',
+                            'IM scan rows', 'IM scan rows delta', 'OLAP Engine Calls', 'Parallel operations not downgraded',
+                            'cell IO uncompressed bytes', 'cell interconnect bytes returned by XT smart scan',
+                            'cell persistent memory IO read requests - local',
+                                               'cell persistent memory IO read requests - remote',
+                            'cell persistent memory IO read requests - smart IO', 'cell physical IO bytes eligible for predicate offload',
+                                               'cell physical IO bytes eligible for smart IOs', 'cell physical IO bytes saved by columnar cache',
+                            'cell physical IO bytes saved by storage index', 'cell physical IO interconnect bytes',
+                                'cell physical IO interconnect bytes returned by smart scan'
+                                               , 'cell physical write IO bytes eligible for offload',
+                            'cell pmem cache read hits', 'consistent gets', 'data warehousing scanned blocks', 'data warehousing scanned objects',
+                            'db block changes', 'db block gets', 'execute count', 'lob reads',
+                            'lob writes', 'logons cumulative', 'parse time cpu', 'physical read IO requests',
+                            'physical read bytes', 'physical read flash cache hits', 'physical read requests optimized',
+                            'physical read total IO requests',
+                            'physical read total bytes', 'physical read total bytes optimized', 'physical read total multi block requests',
+                            'physical reads',
+                            'physical writes', 'redo size', 'redo writes', 'redo write time',
+                            'securefile direct read bytes', 'securefile direct write bytes', 'table scan rows gotten', 'user I/O wait time',
+                            'user commits', 'user calls', 'user rollbacks' )
+       AND s.instance_number = g.instance_number
+ORDER  BY 1; 
+
+spool off
