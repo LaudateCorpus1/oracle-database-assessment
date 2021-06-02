@@ -1398,7 +1398,7 @@ SELECT h.snap_id,
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number
-) where rank_exec < 20 or rank_elap < 20 or rank_rows_exec < 20 or rank_rows_buff < 20 or rank_exec_elap < 20;
+) a where rank_exec < 20 or rank_elap < 20 or rank_rows_exec < 20 or rank_rows_buff < 20 or rank_exec_elap < 20;
 
 spool off
 
