@@ -1507,6 +1507,7 @@ SELECT h.snap_id,
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number
+   AND snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
 ) a where rank_exec < 20 or rank_elap < 20 or rank_rows_exec < 20 or rank_rows_buff < 20 or rank_exec_elap < 20;
 
 spool off
@@ -1530,6 +1531,7 @@ SELECT s.snap_id,
 FROM   dba_hist_snapshot s,
        dba_hist_sysstat g
 WHERE  s.snap_id = g.snap_id
+       AND snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
        AND g.stat_name IN ( 'CPU used by this session', 'DB time', 'Effective IO time', 'HCC DML conventional',
                             'HCC load conventional CUs', 'HCC load direct CUs', 'HCC scan cell bytes compressed', 'HCC scan cell bytes decompressed',
                             'HCC scan rdbms bytes compressed', 'HCC scan rdbms bytes decompressed', 'HCC usage ZFS', 'HCC usage cloud',
