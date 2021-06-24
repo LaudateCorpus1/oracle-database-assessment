@@ -204,7 +204,7 @@ spool off
 spool opdb__usedspacedetails__&v_host..&v_dbname..&v_inst..&v_hora..log
 
 col OWNER for a30
-col TABLESPACE_NAME for a20
+col TABLESPACE_NAME for a50
 set lines 340
 
 SELECT '&&v_host'
