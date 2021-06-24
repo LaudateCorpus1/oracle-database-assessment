@@ -55,7 +55,7 @@ FROM   dual
 
 
 set lines 600
-set pages 200
+set pages 50000
 set verify off
 set feed off
 column name format a100
@@ -431,7 +431,7 @@ spool opdb__spacebyownersegtype__&v_host..&v_dbname..&v_inst..&v_hora..log
 column owner format a30
 column segment_type format a30
 
-SET pages 100
+SET pages 50000
 --break on report
 --compute sum of total_gb on report
 
@@ -571,7 +571,7 @@ column statistic_name format a30
 column value format 999999999999999
 
 
-SET pages 100 lines 390
+SET pages 50000 lines 390
 col high_value FOR a10
 
 spool opdb__freespaces__&v_host..&v_dbname..&v_inst..&v_hora..log
@@ -580,7 +580,7 @@ column tablespace format a30
 column pct_used format 999.99
 column graph format a25 heading "GRAPH (X=5%)"
 column status format a10
-set lines 300 pages 100
+set lines 300 pages 50000
 
 SELECT '&&v_host'
        || '_'
@@ -646,7 +646,7 @@ spool off
 
 
 
-set pages 9000 
+set pages 50000
 
 spool opdb__dblinks__&v_host..&v_dbname..&v_inst..&v_hora..log
 
@@ -1278,7 +1278,7 @@ GROUP  BY '&&v_host'
 spool off
 
 
-set lines 2000 pages 9999
+set lines 2000 pages 50000
 col SERVICE_ID format 999999999
 col CON_ID format 999999999
 col PDB format A30
