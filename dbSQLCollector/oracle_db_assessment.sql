@@ -653,7 +653,7 @@ spool opdb__dblinks__&v_host..&v_dbname..&v_inst..&v_hora..log
 col owner for a20
 col DB_LINK for a50
 col USERNAME for a20
-col HOST for a30
+col HOST for a300
 set lines 340
 
 SELECT '&&v_host'
