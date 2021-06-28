@@ -1290,7 +1290,12 @@ col FAILOVER_TYPE format A30
 
 spool opdb__dbservicesinfo__&v_host..&v_dbname..&v_inst..&v_hora..log
 
-SELECT con_id,
+SELECT '&&v_host'
+       || '_'
+       || '&&v_dbname'
+       || '_'
+       || '&&v_hora'                          AS pkey,
+       con_id,
        pdb,
        service_id,
        name service_name,
@@ -1313,7 +1318,12 @@ col tablespace_name format a40
 
 spool opdb__usrsegatt__&v_host..&v_dbname..&v_inst..&v_hora..log
 
- SELECT con_id,
+ SELECT '&&v_host'
+       || '_'
+       || '&&v_dbname'
+       || '_'
+       || '&&v_hora'                          AS pkey,
+        con_id,
         owner,
         segment_name,
         segment_type,
