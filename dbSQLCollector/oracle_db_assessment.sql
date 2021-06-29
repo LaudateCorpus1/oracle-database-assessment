@@ -17,7 +17,7 @@ limitations under the License.
 --accept envtype char prompt "Please enter PROD if this is a PRODUCTION environment. Otherwise enter NON-PROD: "
 
 --#Block for generating CSV
-set colsep ||
+set colsep ,
 set headsep off
 set trimspool on
 set pagesize 0
@@ -1491,6 +1491,7 @@ SELECT h.snap_id,
        h.instance_number inst_id,
        h.con_id,
        TO_CHAR(CAST(s.end_interval_time AS DATE), 'YYYY-MM-DD HH24:MI') end_time,
+       to_char(s.end_interval_time,'hh24') hour,
        h.sql_id,
        h.plan_hash_value phv,
        h.module,
@@ -1517,7 +1518,7 @@ SELECT h.snap_id,
    AND s.snap_id = h.snap_id
    AND s.dbid = h.dbid
    AND s.instance_number = h.instance_number
-   AND snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
+   AND s.snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
 ) a where rank_exec < 20 or rank_elap < 20 or rank_rows_exec < 20 or rank_rows_buff < 20 or rank_exec_elap < 20;
 
 spool off
@@ -1525,9 +1526,10 @@ spool off
 spool opdb__dbahistsysstat__&v_host..&v_dbname..&v_inst..&v_hora..log
 
 SELECT s.snap_id,
+       s.dbid,
        s.instance_number,
-       s.con_id,
        s.begin_interval_time,
+       to_char(s.begin_interval_time,'hh24') hour,
        g.stat_name,
        g.value,
        NVL(DECODE(GREATEST(value, NVL(LAG(value)
@@ -1541,7 +1543,7 @@ SELECT s.snap_id,
 FROM   dba_hist_snapshot s,
        dba_hist_sysstat g
 WHERE  s.snap_id = g.snap_id
-       AND snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
+       AND s.snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
        AND g.stat_name IN ( 'CPU used by this session', 'DB time', 'Effective IO time', 'HCC DML conventional',
                             'HCC load conventional CUs', 'HCC load direct CUs', 'HCC scan cell bytes compressed', 'HCC scan cell bytes decompressed',
                             'HCC scan rdbms bytes compressed', 'HCC scan rdbms bytes decompressed', 'HCC usage ZFS', 'HCC usage cloud',
@@ -1566,7 +1568,37 @@ WHERE  s.snap_id = g.snap_id
                             'securefile direct read bytes', 'securefile direct write bytes', 'table scan rows gotten', 'user I/O wait time',
                             'user commits', 'user calls', 'user rollbacks' )
        AND s.instance_number = g.instance_number
-ORDER  BY 1;
+       AND s.dbid = g.dbid
+ORDER  BY 1; 
+
+spool off
+
+
+
+spool opdb__dbahistsystimemodel__&v_host..&v_dbname..&v_inst..&v_hora..log
+
+SELECT s.snap_id,
+       s.dbid,
+       s.instance_number,
+       s.begin_interval_time,
+       to_char(s.begin_interval_time,'hh24') hour,
+       g.stat_name,
+       g.value,
+       NVL(DECODE(GREATEST(value, NVL(LAG(value)
+                                        over (
+                                          PARTITION BY s.dbid, s.instance_number, g.stat_name
+                                          ORDER BY s.snap_id), 0)), value, value - LAG(value)
+                                                                                     over (
+                                                                                       PARTITION BY s.dbid, s.instance_number, g.stat_name
+                                                                                       ORDER BY s.snap_id),
+                                                                    0), 0) AS DELTA
+FROM   dba_hist_snapshot s,
+       dba_hist_sys_time_model g
+WHERE  s.snap_id = g.snap_id
+       AND s.snap_id BETWEEN '&&v_min_snapid' AND '&&v_max_snapid'
+       AND s.instance_number = g.instance_number
+       AND s.dbid = g.dbid
+ORDER  BY 1; 
 
 spool off
 
