@@ -1525,7 +1525,8 @@ spool off
 
 spool opdb__dbahistsysstat__&v_host..&v_dbname..&v_inst..&v_hora..log
 
-SELECT s.snap_id,
+SELECT '&&v_host' || '_' || '&&v_dbname' || '_' || '&&v_hora' as pkey,
+       s.snap_id,
        s.dbid,
        s.instance_number,
        s.begin_interval_time,
@@ -1577,7 +1578,8 @@ spool off
 
 spool opdb__dbahistsystimemodel__&v_host..&v_dbname..&v_inst..&v_hora..log
 
-SELECT s.snap_id,
+SELECT '&&v_host' || '_' || '&&v_dbname' || '_' || '&&v_hora' as pkey,
+       s.snap_id,
        s.dbid,
        s.instance_number,
        s.begin_interval_time,
